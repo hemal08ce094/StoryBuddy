@@ -113,7 +113,7 @@ public struct Constants {
 		/// Custom description of your app.
 		/// Will be shown under the SignInView if AuthKit was selected during project generation
 		public static let appDescription: LocalizedStringKey =
-			"Description of \(appName).\nIt's truly an engineering marvel."
+			"Create offline, age-appropriate stories with your child as the star"
 
 		/// User's preffered email client will open with this in sender field after tapping "Report a Problem" in SettingsView
 		public static let supportEmail = "hemalmodi3@gmail.com"
@@ -126,10 +126,10 @@ public struct Constants {
 
 		/// URL to your app's ToS, will be shown in Settings/Privacy
 		/// Should match the ToS in App Store Connect and in RevenueCat
-		public static let termsOfServiceURL = "https://APP_DOMAIN_PLACEHOLDER/legal/terms-of-service"
+		public static let termsOfServiceURL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula"
 
 		/// URL to your app's Privacy Policy, will be shown in Settings/Privacy
 		/// Should match the Privacy Policy in App Store Connect and in RevenueCat
-		public static let privacyPolicyURL = "https://APP_DOMAIN_PLACEHOLDER/legal/privacy-policy"
+		public static let privacyPolicyURL = "https://www.termsfeed.com/live/8f40046f-39b8-4be6-89f4-4ccee1f4020d"
 	}
 }

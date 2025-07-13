@@ -45,7 +45,7 @@ struct SettingsView: View {
 					/// NotifKit Section
 					SettingsRowItem(SettingsPath.notifications)
 					/// With InAppPurchasekit will require premium to access (otherwise will show the premium sheet on tap)
-					SettingsRowItem(SettingsPath.appearance)
+//					SettingsRowItem(SettingsPath.appearance)
 
 					Button {
 						showLegalSheet = true
@@ -88,11 +88,11 @@ struct SettingsView: View {
 				}
 
 				/// Purchase Premium / Manage Premium Settings Section (InAppPurchaseKit)
-				Section {
-					NavigationLink(value: SettingsPath.premium) {
-						PremiumRow()
-					}
-				}
+//				Section {
+//					NavigationLink(value: SettingsPath.premium) {
+//						PremiumRow()
+//					}
+//				}
 
 				// Developer Contact Section
 				Section {

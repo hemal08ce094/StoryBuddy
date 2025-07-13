@@ -12,6 +12,8 @@ import SwiftUI
 
 struct ContentView: View {
 
+    @EnvironmentObject var db: DB
+    
 	init() {
 		// Make NavigationTitle Rounded
 
@@ -61,16 +63,20 @@ struct ContentView: View {
 //				AdsKitExamples()
 //			}
             Tab("Home", systemImage: "house.fill") {
-                StoryGeneratorView()
+                StoryGeneratorView().requireLogin(db: db, navTitle: "Sign in to Continue", onCancel: {
+                        print("User not logged in")
+                })
             }
             
             Tab("History", systemImage: "clock.fill") {
-                SavedStoryListView(savedStories: StoryGenerator.shared.savedStories())
+                SavedStoryListView(savedStories: StoryGenerator.shared.savedStories()).requireLogin(db: db, navTitle: "Sign in to Continue", onCancel: {
+                    print("User not logged in")
+            })
             }
 			// Example view on how to access the Database.
-			Tab("Sample Story", systemImage: "externaldrive.badge.icloud") {
-				DatabaseExampleView()
-			}
+//			Tab("Sample Story", systemImage: "externaldrive.badge.icloud") {
+//				DatabaseExampleView()
+//			}
 
 			// Pre-made Settings View for easy native-looking settings screen.
 			Tab("Settings", systemImage: "gear") {

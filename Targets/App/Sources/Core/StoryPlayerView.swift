@@ -91,11 +91,11 @@ struct StoryPlayerView: View {
                             }
                         }
 
-                        Spacer(minLength: 0)
+//                        Spacer(minLength: 0)
 
-                        VStack(spacing: 32) {
-                            Spacer(minLength: 0)
-                                .frame(height: 36)
+                        VStack(spacing: 28) {
+//                            Spacer(minLength: 0)
+//                                .frame(height: 30)
                             ZStack {
                                 let radius: CGFloat = 160
                                 let handleSize: CGFloat = 26
@@ -175,7 +175,7 @@ struct StoryPlayerView: View {
                                         .padding(.bottom, 8)
                                 }
                             }
-                            .padding(.bottom, 24) // More visual separation from the rest
+                            .padding(.bottom, 40) // More visual separation from the rest
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 36)

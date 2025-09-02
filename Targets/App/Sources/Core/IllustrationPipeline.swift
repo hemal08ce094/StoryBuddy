@@ -24,6 +24,36 @@ import ImagePlayground
 #endif
 
 
+// MARK: - Persisted illustration mapping (per story)
+private struct SceneImage: Codable, Equatable {
+    let index: Int             // Scene index (1-based)
+    let imageURL: String       // File or remote URL string returned by Image Playground
+}
+
+private enum StoryIllustrationsStore {
+    private static func key(for storyID: String) -> String { "story_\(storyID)_images" }
+
+    static func load(for storyID: String) -> [SceneImage] {
+        let k = key(for: storyID)
+        guard let data = UserDefaults.standard.data(forKey: k) else { return [] }
+        return (try? JSONDecoder().decode([SceneImage].self, from: data)) ?? []
+    }
+
+    static func save(_ items: [SceneImage], for storyID: String) {
+        let k = key(for: storyID)
+        if let data = try? JSONEncoder().encode(items) {
+            UserDefaults.standard.set(data, forKey: k)
+        }
+    }
+
+    static func upsertImage(for storyID: String, index: Int, imageURL: URL) {
+        var items = load(for: storyID)
+        items.removeAll { $0.index == index }
+        items.append(SceneImage(index: index, imageURL: imageURL.absoluteString))
+        save(items, for: storyID)
+    }
+}
+
 // MARK: - Scene model
 public struct StoryScene: Identifiable, Hashable {
     public let id: UUID = UUID()
@@ -78,9 +108,9 @@ public struct PromptComposer {
 public struct SceneExtractor {
     public struct Options {
         public var maxScenes: Int = 12
-        public var minCharsPerScene: Int = 60
+        public var minCharsPerScene: Int = 120
         public var maxCharsPerScene: Int = 320
-        public var sentenceJoin: Int = 2 // group up to N sentences per scene
+        public var sentenceJoin: Int = 4 // group up to N sentences per scene
         public init() {}
     }
 
@@ -148,6 +178,18 @@ public struct IllustrationSceneListView: View {
     @State private var generatedImageURL: URL? = nil
     @State private var showCancellationAlert = false
 
+    private func hydrateImagesFromStore() {
+        let persisted = StoryIllustrationsStore.load(for: story.id)
+        for p in persisted {
+            if let url = URL(string: p.imageURL), let img = loadUIImage(from: url) {
+                // Find the current scene with this index
+                if let sc = scenes.first(where: { $0.index == p.index }) {
+                    images[sc.id] = img
+                }
+            }
+        }
+    }
+
     public init(story: SavedStory, pipeline: IllustrationPipeline) {
         self.story = story
         self.pipeline = pipeline
@@ -175,8 +217,9 @@ public struct IllustrationSceneListView: View {
                             .font(.system(size: 18, weight: .semibold, design: .rounded))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(12)
-                            .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.1)))
-
+                            .font(.system(size: 28, design: .rounded))
+                            .foregroundColor(.primary)
+                        
                         HStack {
                             Button {
                                 selectedSceneID = sc.id
@@ -196,17 +239,20 @@ public struct IllustrationSceneListView: View {
             }
             .padding(.vertical, 12)
         }
-        .background(
-            LinearGradient(colors: [Color(red: 0.99, green: 0.88, blue: 0.98),
-                                    Color(red: 0.86, green: 0.93, blue: 0.99)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-                .ignoresSafeArea()
-        )
-        .onAppear { scenes = pipeline.extractScenes(story) }
+        .background(Color(uiColor: .systemBackground))
+        .onAppear {
+            scenes = pipeline.extractScenes(story)
+            hydrateImagesFromStore()
+        }
         .onChange(of: generatedImageURL) { _, url in
             guard let sid = selectedSceneID, let url else { return }
+            // Put into memory cache for immediate UI
             if let img = loadUIImage(from: url) {
                 images[sid] = img
+            }
+            // Persist against the story by scene index so it shows next time
+            if let scene = scenes.first(where: { $0.id == sid }) {
+                StoryIllustrationsStore.upsertImage(for: story.id, index: scene.index, imageURL: url)
             }
         }
         .alert("Generation Cancelled", isPresented: $showCancellationAlert) {
@@ -221,8 +267,7 @@ public struct IllustrationSceneListView: View {
         })
     }
 
-
-    
+    // We build the concept from the prompt + story title
     var concept: ImagePlaygroundConcept {
         guard let sid = selectedSceneID, let scene = scenes.first(where: { $0.id == sid }) else { return ImagePlaygroundConcept.extracted(from: "Childern playing with toy in bright sunny day, enjoying a picnic", title: "Childern playing with toy") }
         
@@ -261,32 +306,6 @@ public struct IllustrationSceneListView: View {
         }
     }
 }
-
-// MARK: - A small wrapper ViewModifier around the Image Playground sheet
-#if canImport(ImagePlayground)
-@available(iOS 18.0, *)
-private struct ImagePlaygroundSheetModifier: ViewModifier {
-    @Binding var isPresented: Bool
-    var conceptProvider: () -> ImagePlaygroundConcept?
-    var onCompletion: (URL) -> Void
-    var onCancellation: () -> Void
-
-    func body(content: Content) -> some View {
-        let concept = conceptProvider()
-        if let concept {
-            content
-                .imagePlaygroundSheet(
-                    isPresented: $isPresented,
-                    concepts: [concept],
-                    onCompletion: { url in onCompletion(url) },
-                    onCancellation: { onCancellation() }
-                )
-        } else {
-            content
-        }
-    }
-}
-#endif
 
 // MARK: - Pipeline facade (no batch)
 public struct IllustrationPipeline {

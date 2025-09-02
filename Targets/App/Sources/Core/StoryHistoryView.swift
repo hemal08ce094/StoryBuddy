@@ -2,8 +2,30 @@ import SwiftUI
 
 struct SavedStoryListView: View {
     @State private var savedStories: [SavedStory]
-    @State private var storyToPlay: SavedStory? = nil
 
+    // Routing
+    private enum Route: Identifiable, Hashable {
+        case play(SavedStory)
+        case illustrate(SavedStory)
+
+        var id: String {
+            switch self {
+            case .play(let s): return "play_" + s.id
+            case .illustrate(let s): return "illustrate_" + s.id
+            }
+        }
+
+        static func == (lhs: Route, rhs: Route) -> Bool {
+            return lhs.id == rhs.id
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(id)
+        }
+    }
+    @State private var route: Route? = nil
+
+    // Filters
     @State private var showFilterSheet: Bool = false
     @State private var selectedType: String? = nil
     @State private var selectedKid: String? = nil
@@ -17,12 +39,12 @@ struct SavedStoryListView: View {
         let types = savedStories.map { $0.type.isEmpty ? "Unknown" : $0.type }
         return Array(Set(types)).sorted()
     }
-    
+
     private var allKids: [String] {
         let kids = savedStories.flatMap { $0.kidNames }
         return Array(Set(kids)).sorted()
     }
-    
+
     // Duration groups: nil, <30, 30–60, >60 seconds
     // Represent groups as Int? with meanings:
     // nil = All, 0 = <30, 1 = 30–60, 2 = >60
@@ -52,21 +74,32 @@ struct SavedStoryListView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List(filteredStories) { story in
-                HStack {
-                    SavedStoryRow(story: story)
-                    Spacer()
-                    Button(action: {
-                        storyToPlay = story
-                    }) {
-                        Image(systemName: "play.circle.fill")
-                            .font(.largeTitle)
-                            .foregroundColor(.blue)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack { SavedStoryRow(story: story); Spacer() }
+                        .padding(.vertical, 6)
+
+                    HStack(spacing: 12) {
+                        Button("Play Story") {
+                            // Optional: keep your haptics if available
+                            #if canImport(UIKit)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            #endif
+                            route = .play(story)
+                        }
+                        .buttonStyle(.glassProminent)
+
+                        Button("Story illustrations") {
+                            #if canImport(UIKit)
+                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                            #endif
+                            route = .illustrate(story)
+                        }
+                        .buttonStyle(.glassProminent)
                     }
-                    .buttonStyle(.plain)
+                    .padding(20)
                 }
-                .padding(.vertical, 6)
             }
             .navigationTitle("Saved Stories")
             .toolbar {
@@ -79,14 +112,17 @@ struct SavedStoryListView: View {
             .onAppear {
                 savedStories = StoryGenerator.shared.savedStories()
             }
-            .sheet(item: $storyToPlay) { story in
-
-                let pipeline = IllustrationPipeline() // same extractor / prompt composer
-                IllustrationSceneListView(story: story, pipeline: pipeline)
-                
-//                IllustrationBatchView(story: story, pipeline: IllustrationPipeline())
-//                StoryPlayerView(story: story, duration: story.duration)
+            // Navigation destinations
+            .navigationDestination(item: $route) { dest in
+                switch dest {
+                case .play(let story):
+                    StoryPlayerView(story: story, duration: story.duration)
+                case .illustrate(let visualStory):
+                    let pipeline = IllustrationPipeline() // same extractor / prompt composer
+                    IllustrationSceneListView(story: visualStory, pipeline: pipeline)
+                }
             }
+            // Filters remain a sheet
             .sheet(isPresented: $showFilterSheet) {
                 FilterSheet(
                     allTypes: allTypes,
@@ -195,7 +231,7 @@ private struct FilterSheet: View {
     let allTypes: [String]
     let allKids: [String]
     let durationGroups: [(label: String, value: Int?)]
-    
+
     @Binding var selectedType: String?
     @Binding var selectedKid: String?
     @Binding var selectedDuration: Int?
@@ -258,14 +294,10 @@ private struct FilterSheet: View {
             .navigationTitle("Filters")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        isPresented = false
-                    }
+                    Button("Cancel") { isPresented = false }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        isPresented = false
-                    }
+                    Button("Done") { isPresented = false }
                 }
             }
         }

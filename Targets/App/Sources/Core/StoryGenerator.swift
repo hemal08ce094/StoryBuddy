@@ -122,7 +122,4 @@ class StoryGenerator {
     }
 }
 
-// Note for developers:
-// Please check for duplicate definitions of StoryHistoryView and StorySettingsView in the project.
-// Remove any extra or conflicting copies to avoid build issues.
 

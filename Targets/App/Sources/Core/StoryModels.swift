@@ -3,17 +3,6 @@
 
 import Foundation
 
-//struct SavedStory: Codable, Identifiable, Equatable {
-//    let id: String // UUID string
-//    let title: String // title of story
-//    let description: String // descirption of story
-//    let content: String // full content of story
-//    let date: Date
-//    let duration: Int // seconds
-//    let type: String // preset topic or custom
-//    let kidNames: [String] // kid name in story
-//}
-
 public struct SavedStory: Codable, Identifiable, Equatable {
     public let id: String // UUID string
     public let title: String // title of story

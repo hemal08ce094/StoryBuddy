@@ -80,7 +80,12 @@ struct SavedStoryListView: View {
                 savedStories = StoryGenerator.shared.savedStories()
             }
             .sheet(item: $storyToPlay) { story in
-                StoryPlayerView(story: story, duration: story.duration)
+
+                let pipeline = IllustrationPipeline() // same extractor / prompt composer
+                IllustrationSceneListView(story: story, pipeline: pipeline)
+                
+//                IllustrationBatchView(story: story, pipeline: IllustrationPipeline())
+//                StoryPlayerView(story: story, duration: story.duration)
             }
             .sheet(isPresented: $showFilterSheet) {
                 FilterSheet(

@@ -85,12 +85,12 @@ struct ContentView: View {
 
 			#if DEBUG
 
-				TabSection("DEBUG ONLY") {
-					// Use this to create quick settings and toggles to streamline the development process
-					Tab("Developer", systemImage: "hammer") {
-						DeveloperSettingsView()
-					}
-				}
+//				TabSection("DEBUG ONLY") {
+//					// Use this to create quick settings and toggles to streamline the development process
+//					Tab("Developer", systemImage: "hammer") {
+//						DeveloperSettingsView()
+//					}
+//				}
 
 			#endif
 		}

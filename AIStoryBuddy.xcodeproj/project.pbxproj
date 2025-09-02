@@ -20,6 +20,7 @@
 		071010652E1E5E9300AC532C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 071010642E1E5E9300AC532C /* GoogleService-Info.plist */; };
 		071010672E1E65D700AC532C /* StoryHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 071010662E1E65D700AC532C /* StoryHistoryView.swift */; };
 		0710107B2E1EE15000AC532C /* ConfettiEffect.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0710107A2E1EE15000AC532C /* ConfettiEffect.swift */; };
+		07BB88492E67886B00D7F274 /* IllustrationPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07BB88482E67886B00D7F274 /* IllustrationPipeline.swift */; };
 		08122ECCBCCA497893DB64E3 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F8ADFE24E6246DEB293D1FE /* WhatsNewView.swift */; };
 		08A4F2B5FD10B3D467F8C8B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 69E0D6C63203841DD3000257 /* Assets.xcassets */; };
 		09811884CAF37A88ED7CD11E /* RevenueCat-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = D0A8DBD87D8B09C3893A8DD9 /* RevenueCat-Info.plist */; };
@@ -328,6 +329,7 @@
 		071010642E1E5E9300AC532C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		071010662E1E65D700AC532C /* StoryHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryHistoryView.swift; sourceTree = "<group>"; };
 		0710107A2E1EE15000AC532C /* ConfettiEffect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfettiEffect.swift; sourceTree = "<group>"; };
+		07BB88482E67886B00D7F274 /* IllustrationPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IllustrationPipeline.swift; sourceTree = "<group>"; };
 		08B54C6E49F0FE41E73B9853 /* FirebaseBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseBackend.swift; sourceTree = "<group>"; };
 		0D8F1511BFC49F25984E0952 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		0DA2B44FF7A9F35E653EAA57 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -532,6 +534,7 @@
 				071010662E1E65D700AC532C /* StoryHistoryView.swift */,
 				071010592E1E5E7500AC532C /* StoryGenerator.swift */,
 				0710105A2E1E5E7500AC532C /* StoryModels.swift */,
+				07BB88482E67886B00D7F274 /* IllustrationPipeline.swift */,
 				0710105C2E1E5E7500AC532C /* StorySettingsView.swift */,
 				071010232E1CD74300AC532C /* StoryPlayerView.swift */,
 			);
@@ -1438,6 +1441,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				07BB88492E67886B00D7F274 /* IllustrationPipeline.swift in Sources */,
 				6AD206A89E33E37CC135E3F4 /* TuistBundle+AIStoryBuddy.swift in Sources */,
 				071010252E1CD74300AC532C /* Persistence.swift in Sources */,
 				071010672E1E65D700AC532C /* StoryHistoryView.swift in Sources */,
@@ -1751,16 +1755,18 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Derived/Entitlements/AIStoryBuddy.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 542W8Z2VM3;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = "Derived/InfoPlists/AIStoryBuddy-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 2.0;
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.hemal.Story-Buddy";
 				PRODUCT_NAME = AIStoryBuddy;
@@ -2081,16 +2087,18 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Derived/Entitlements/AIStoryBuddy.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 542W8Z2VM3;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = "Derived/InfoPlists/AIStoryBuddy-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 2.0;
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.hemal.Story-Buddy";
 				PRODUCT_NAME = AIStoryBuddy;

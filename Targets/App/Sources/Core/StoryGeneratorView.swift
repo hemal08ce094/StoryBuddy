@@ -106,6 +106,23 @@ struct StoryGeneratorView: View {
     
     @State private var currentSavedStory: SavedStory? = nil
     
+    // Navigation routing
+    private enum Route: Identifiable, Hashable {
+        case play(SavedStory)
+        case illustrate(SavedStory)
+        var id: String {
+            switch self {
+            case .play(let s): return "play_" + s.id
+            case .illustrate(let s): return "illustrate_" + s.id
+            }
+        }
+        static func == (lhs: Route, rhs: Route) -> Bool { lhs.id == rhs.id }
+        func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    }
+    @State private var route: Route? = nil
+    @State private var pendingStory: SavedStory? = nil
+    @State private var showActionSheet: Bool = false
+    
     @State private var showModelUnavailableAlert = false
     
     @State private var showConfetti = false
@@ -128,35 +145,34 @@ struct StoryGeneratorView: View {
     
     var body: some View {
         GeometryReader { geometry in
-            let isPad = geometry.size.width >= 700 // treat >= 700pt as iPad
-            Group {
-                if isPad {
-                    NavigationSplitView {
-                        generatorContent
-                    } detail: {
-                        if let story = currentSavedStory {
+            NavigationStack {
+                generatorContent
+                    .navigationDestination(item: $route) { dest in
+                        switch dest {
+                        case .play(let story):
                             StoryPlayerView(story: story, duration: Int(duration))
-                        } else {
-                            Text("Select or generate a story to play.")
-                                .foregroundColor(.secondary)
-                                .font(.title3)
-                                .padding()
+                        case .illustrate(let visualStory):
+                            let pipeline = IllustrationPipeline()
+                            IllustrationSceneListView(story: visualStory, pipeline: pipeline)
                         }
                     }
-                } else {
-                    NavigationView {
-                        generatorContent
+                    .confirmationDialog("What would you like to do?", isPresented: $showActionSheet, presenting: pendingStory) { story in
+                        Button("Play Story") {
+                            HapticEngine.play(.play)
+                            route = .play(story)
+                        }
+                        Button("View Story") {
+                            HapticEngine.play(.scrub)
+                            route = .illustrate(story)
+                        }
+                        Button("Cancel", role: .cancel) { }
                     }
-                }
+                    .alert("On-device Model Not Available", isPresented: $showModelUnavailableAlert) {
+                        Button("OK", role: .cancel) {}
+                    } message: {
+                        Text("The on-device Foundation model is not available. Please check your device settings or try again later.")
+                    }
             }
-        }
-        .alert("On-device Model Not Available", isPresented: $showModelUnavailableAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("The on-device Foundation model is not available. Please check your device settings or try again later.")
-        }
-        .sheet(item: $currentSavedStory) { story in
-            StoryPlayerView(story: story, duration: Int(duration))
         }
     }
     
@@ -233,11 +249,12 @@ struct StoryGeneratorView: View {
                 HapticEngine.play(.play)
                 // Find or create a SavedStory for playback
                 if let matched = StoryGenerator.shared.savedStories().first(where: { $0.content == storyContent }) {
-                    currentSavedStory = matched
+                    pendingStory = matched
+                    showActionSheet = true
                 } else {
                     // Use first line or fallback title
                     let title = storyContent.components(separatedBy: "\n").first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Story"
-                    currentSavedStory = SavedStory(
+                    let newStory = SavedStory(
                         id: UUID().uuidString,
                         title: title,
                         description: "Custom story",
@@ -250,6 +267,8 @@ struct StoryGeneratorView: View {
                             return trimmedCharacters.isEmpty ? [] : trimmedCharacters.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
                         }()
                     )
+                    pendingStory = newStory
+                    showActionSheet = true
                 }
             } label: {
                 Label("Play Story", systemImage: "play.circle.fill")

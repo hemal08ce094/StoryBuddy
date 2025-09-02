@@ -172,23 +172,13 @@ public struct IllustrationSceneListView: View {
     @State private var scenes: [StoryScene] = []
     @State private var images: [UUID: UIImage] = [:]
 
+    // Paging state
+    @State private var currentIndex: Int = 0
+
     // Image Playground state
-    @State private var selectedSceneID: UUID? = nil
     @State private var isImagePlaygroundPresented = false
     @State private var generatedImageURL: URL? = nil
     @State private var showCancellationAlert = false
-
-    private func hydrateImagesFromStore() {
-        let persisted = StoryIllustrationsStore.load(for: story.id)
-        for p in persisted {
-            if let url = URL(string: p.imageURL), let img = loadUIImage(from: url) {
-                // Find the current scene with this index
-                if let sc = scenes.first(where: { $0.index == p.index }) {
-                    images[sc.id] = img
-                }
-            }
-        }
-    }
 
     public init(story: SavedStory, pipeline: IllustrationPipeline) {
         self.story = story
@@ -196,86 +186,131 @@ public struct IllustrationSceneListView: View {
     }
 
     public var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 14) {
-                ForEach(scenes) { sc in
-                    VStack(alignment: .leading, spacing: 10) {
-                        if let img = images[sc.id] {
-                            Image(uiImage: img)
-                                .resizable().scaledToFill()
-                                .frame(height: 170)
-                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.12)))
-                        } else {
-                            RoundedRectangle(cornerRadius: 18)
-                                .fill(Color.white.opacity(0.12))
-                                .frame(height: 120)
-                                .overlay(Text("No image yet").foregroundStyle(.secondary))
-                        }
+        GeometryReader { geo in
+            ZStack {
 
-                        Text(sc.text)
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(12)
-                            .font(.system(size: 28, design: .rounded))
-                            .foregroundColor(.primary)
-                        
-                        HStack {
-                            Button {
-                                selectedSceneID = sc.id
-                                presentPlaygroundOrFallback(for: sc)
-                            } label: {
-                                Label("Generate", systemImage: "wand.and.stars")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.pink)
+                VStack(spacing: 16) {
+                    // Title + page indicator (top)
+                    HStack {
+                        Text(story.title)
+                            .font(.system(size: 24, weight: .heavy, design: .rounded))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        Spacer()
+                        Text(pageIndicator)
+                            .font(.footnote).bold()
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .padding(.horizontal, 16)
 
-                            Spacer()
+                    // Card carousel
+                    let cardWidth = min(geo.size.width * 0.88, 820)
+                    let cardHeight = min(geo.size.height * 0.68, 560)
+
+                    TabView(selection: $currentIndex) {
+                        ForEach(Array(scenes.enumerated()), id: \.offset) { (idx, scene) in
+                            SceneCard(
+                                scene: scene,
+                                image: images[scene.id],
+                                size: CGSize(width: cardWidth, height: cardHeight),
+                                onGenerate: {
+                                    presentPlaygroundOrFallback(for: scene)
+                                }
+                            )
+                            .tag(idx)
+                            .padding(.horizontal, (geo.size.width - cardWidth) / 2)
+                            .padding(.vertical, (geo.size.height - cardHeight) / 2 - 30)
                         }
                     }
-                    .padding(.horizontal, 12)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(width: geo.size.width, height: cardHeight)
+
+                    // Bottom controls (prev/next)
+                    HStack {
+                        Button(action: goPrev) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 18, weight: .heavy))
+                                .frame(width: 48, height: 48)
+                                .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.25)))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(currentIndex == 0)
+                        .opacity(currentIndex == 0 ? 0.4 : 1)
+
+                        Spacer()
+
+                        Button(action: goNext) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 18, weight: .heavy))
+                                .frame(width: 48, height: 48)
+                                .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.25)))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(currentIndex >= max(0, scenes.count - 1))
+                        .opacity(currentIndex >= max(0, scenes.count - 1) ? 0.4 : 1)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 12)
                 }
             }
-            .padding(.vertical, 12)
         }
-        .background(Color(uiColor: .systemBackground))
         .onAppear {
             scenes = pipeline.extractScenes(story)
             hydrateImagesFromStore()
         }
         .onChange(of: generatedImageURL) { _, url in
-            guard let sid = selectedSceneID, let url else { return }
-            // Put into memory cache for immediate UI
+            guard let url else { return }
+            // Cache & persist to the corresponding scene (current index)
+            guard scenes.indices.contains(currentIndex) else { return }
+            let scene = scenes[currentIndex]
             if let img = loadUIImage(from: url) {
-                images[sid] = img
+                images[scene.id] = img
             }
-            // Persist against the story by scene index so it shows next time
-            if let scene = scenes.first(where: { $0.id == sid }) {
-                StoryIllustrationsStore.upsertImage(for: story.id, index: scene.index, imageURL: url)
-            }
+            StoryIllustrationsStore.upsertImage(for: story.id, index: scene.index, imageURL: url)
         }
         .alert("Generation Cancelled", isPresented: $showCancellationAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text("The image generation was cancelled.")
         }
-        .imagePlaygroundSheet(isPresented: $isImagePlaygroundPresented, concepts: [concept], onCompletion: { url in
-            self.generatedImageURL = url
-        }, onCancellation: {
-            showCancellationAlert = true
-        })
+        // Present Apple's Image Playground sheet (when available)
+        #if canImport(ImagePlayground)
+        .modifier(ImagePlaygroundSheetWrapper(
+            isPresented: $isImagePlaygroundPresented,
+            conceptProvider: { currentConcept },
+            onCompletion: { url in generatedImageURL = url },
+            onCancellation: { showCancellationAlert = true }
+        ))
+        #endif
     }
 
-    // We build the concept from the prompt + story title
-    var concept: ImagePlaygroundConcept {
-        guard let sid = selectedSceneID, let scene = scenes.first(where: { $0.id == sid }) else { return ImagePlaygroundConcept.extracted(from: "Childern playing with toy in bright sunny day, enjoying a picnic", title: "Childern playing with toy") }
-        
-        return ImagePlaygroundConcept.extracted(from: scene.prompt, title: story.title)
+    // MARK: - Helpers
+    private var pageIndicator: String {
+        guard !scenes.isEmpty else { return "0/0" }
+        return "\(currentIndex + 1)/\(scenes.count)"
     }
-    
 
-    // If the framework isn't available, fall back to a placeholder immediately
+    private func goPrev() { currentIndex = max(0, currentIndex - 1) }
+    private func goNext() { currentIndex = min(max(0, scenes.count - 1), currentIndex + 1) }
+
+    private func hydrateImagesFromStore() {
+        let persisted = StoryIllustrationsStore.load(for: story.id)
+        for p in persisted {
+            if let url = URL(string: p.imageURL), let img = loadUIImage(from: url) {
+                if let sc = scenes.first(where: { $0.index == p.index }) {
+                    images[sc.id] = img
+                }
+            }
+        }
+    }
+
+    private func loadUIImage(from url: URL) -> UIImage? {
+        if url.isFileURL, let data = try? Data(contentsOf: url) { return UIImage(data: data) }
+        if let data = try? Data(contentsOf: url) { return UIImage(data: data) }
+        return nil
+    }
+
     private func presentPlaygroundOrFallback(for scene: StoryScene) {
         #if canImport(ImagePlayground)
         if #available(iOS 18.0, *) {
@@ -283,16 +318,8 @@ public struct IllustrationSceneListView: View {
             return
         }
         #endif
-        // Fallback: generate a placeholder image synchronously
-        let placeholder = placeholderImage(text: scene.text)
-        images[scene.id] = placeholder
-    }
-
-    private func loadUIImage(from url: URL) -> UIImage? {
-        if url.isFileURL, let data = try? Data(contentsOf: url) { return UIImage(data: data) }
-        // As a fallback attempt, let UIImage load remote URLs too
-        if let data = try? Data(contentsOf: url) { return UIImage(data: data) }
-        return nil
+        // Fallback placeholder
+        images[scene.id] = placeholderImage(text: scene.text)
     }
 
     private func placeholderImage(text: String) -> UIImage {
@@ -302,10 +329,116 @@ public struct IllustrationSceneListView: View {
             UIColor.systemTeal.setFill(); ctx.fill(CGRect(origin: .zero, size: size))
             let para = NSMutableParagraphStyle(); para.alignment = .center
             let attrs: [NSAttributedString.Key: Any] = [ .font: UIFont.boldSystemFont(ofSize: 36), .foregroundColor: UIColor.white, .paragraphStyle: para ]
-            ("Illustration placeholder" + String(text.prefix(200))).draw(in: CGRect(x: 40, y: 100, width: size.width - 80, height: size.height - 200), withAttributes: attrs)
+            ("Illustration placeholder\n\n" + String(text.prefix(200))).draw(in: CGRect(x: 40, y: 100, width: size.width - 80, height: size.height - 200), withAttributes: attrs)
+        }
+    }
+
+    // Current concept from prompt + title for the current page
+    #if canImport(ImagePlayground)
+    private var currentConcept: ImagePlaygroundConcept? {
+        guard scenes.indices.contains(currentIndex) else { return nil }
+        let sc = scenes[currentIndex]
+        if #available(iOS 18.0, *) {
+            return ImagePlaygroundConcept.extracted(from: sc.prompt, title: story.title)
+        } else { return nil }
+    }
+    #endif
+}
+
+// MARK: - Card UI
+private struct SceneCard: View {
+    let scene: StoryScene
+    let image: UIImage?
+    let size: CGSize
+    let onGenerate: () -> Void
+
+    var body: some View {
+        ZStack {
+            Group {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    // Placeholder background
+                    LinearGradient(colors: [Color.white.opacity(0.6), Color.white.opacity(0.2)], startPoint: .top, endPoint: .bottom)
+                        .overlay(
+                            Image(systemName: "photo")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                        )
+                }
+            }
+            .frame(width: size.width, height: size.height)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.18), lineWidth: 1))
+            .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 10)
+
+            // Center text panel with gradient background
+            VStack { Spacer() }
+                .frame(width: size.width, height: size.height)
+                .overlay(alignment: .bottom) {
+                    ZStack {
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.black.opacity(0.0), Color.black.opacity(0.55)]),
+                            startPoint: .top, endPoint: .bottom
+                        )
+                        .frame(height: min(180, size.height * 0.36))
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+                        HStack(alignment: .bottom, spacing: 12) {
+                            Text(scene.text)
+                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .foregroundColor(.primary)
+                                .lineLimit(4)
+                                .padding(14)
+                            Spacer()
+                            // Small Generate button (wand)
+                            Button(action: onGenerate) {
+                                Image(systemName: "wand.and.stars")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(12)
+                                    .background(.ultraThickMaterial, in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.trailing, 14)
+                            .padding(.bottom, 12)
+                        }
+                    }
+                    .frame(width: size.width)
+                }
+        }
+        .frame(width: size.width, height: size.height)
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+}
+
+// MARK: - Image Playground SwiftUI wrapper
+#if canImport(ImagePlayground)
+@available(iOS 18.0, *)
+private struct ImagePlaygroundSheetWrapper: ViewModifier {
+    @Binding var isPresented: Bool
+    var conceptProvider: () -> ImagePlaygroundConcept?
+    var onCompletion: (URL) -> Void
+    var onCancellation: () -> Void
+
+    func body(content: Content) -> some View {
+        if let concept = conceptProvider() {
+            content
+                .imagePlaygroundSheet(
+                    isPresented: $isPresented,
+                    concepts: [concept],
+                    onCompletion: { url in onCompletion(url) },
+                    onCancellation: { onCancellation() }
+                )
+        } else {
+            content
         }
     }
 }
+#endif
 
 // MARK: - Pipeline facade (no batch)
 public struct IllustrationPipeline {

@@ -90,7 +90,7 @@ struct SavedStoryListView: View {
                         }
                         .buttonStyle(.glassProminent)
 
-                        Button("Story illustrations") {
+                        Button("View Story") {
                             #if canImport(UIKit)
                             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                             #endif

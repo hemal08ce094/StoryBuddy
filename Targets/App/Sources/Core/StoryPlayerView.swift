@@ -165,9 +165,12 @@ struct StoryPlayerView: View {
                                             }
                                     )
 
-                                // Center: Mascot view with animation and remaining time
+                                // Center: Kid-friendly loading animation and remaining time
                                 VStack(spacing: 8) {
-                                    DuoLoading()
+                                    
+                                    MusicNotes()
+//                                    KidFriendlyLoading()
+                                        .frame(width: 120, height: 120)
                                         .padding(.bottom, 8)
                                     Text("Approx \(remaining)s remaining")
                                         .font(.title3.bold())

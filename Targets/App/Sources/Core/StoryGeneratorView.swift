@@ -36,9 +36,7 @@ struct TopicButtonView: View {
 }
 
 struct StoryGeneratorView: View {
-    enum DuoAction: CaseIterable, Equatable {
-        case none, shout, waveBothHands
-    }
+    // Removed DuoLingo-related animation actions
     
     struct TopicOption: Identifiable {
         var id: String { title }
@@ -100,9 +98,7 @@ struct StoryGeneratorView: View {
     @State private var isGenerating: Bool = false
     @State private var isAnimatingLotus: Bool = false
     
-    // Although duoAction is no longer used for DuoGetStarted, we keep this state for potential future use or animation triggers.
-    @State private var duoAction: DuoAction = .none
-    @State private var isDuoAnimating: Bool = false
+    // Removed DuoLingo-related animation state
     
     @State private var currentSavedStory: SavedStory? = nil
     
@@ -326,10 +322,7 @@ struct StoryGeneratorView: View {
     }
     
     
-    private func stopDuoAnimationLoop() {
-        isDuoAnimating = false
-        duoAction = .none
-    }
+    // Removed DuoLingo-related animation functions
     
     func generateStory() async {
        

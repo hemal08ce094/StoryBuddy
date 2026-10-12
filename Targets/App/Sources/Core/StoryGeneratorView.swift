@@ -62,7 +62,7 @@ struct StoryGeneratorView: View {
         TopicOption(title: "Circus Fun", image: "tent.2"),
         TopicOption(title: "Lost in the Snow", image: "snowflake"),
         TopicOption(title: "Camping Trip", image: "tent"),
-        TopicOption(title: "Farmyard Fables", image: "tractor"),
+        TopicOption(title: "Farmyard Fables", image: "leaf.circle"),
         TopicOption(title: "Monster Party (Friendly)", image: "face.smiling"),
         TopicOption(title: "Custom...", image: "pencil")
     ]
@@ -93,6 +93,7 @@ struct StoryGeneratorView: View {
     @State private var selectedTopicIndex: Int = 0
     @State private var customTopic: String = ""
     @State private var charactersText: String
+    @State private var selectedKids: Set<String> = [] // Selected kid IDs
     @State private var duration: Double = 30
     @State private var storyContent: String = ""
     @State private var isGenerating: Bool = false
@@ -106,10 +107,12 @@ struct StoryGeneratorView: View {
     private enum Route: Identifiable, Hashable {
         case play(SavedStory)
         case illustrate(SavedStory)
+        case game(SavedStory)
         var id: String {
             switch self {
             case .play(let s): return "play_" + s.id
             case .illustrate(let s): return "illustrate_" + s.id
+            case .game(let s): return "game_" + s.id
             }
         }
         static func == (lhs: Route, rhs: Route) -> Bool { lhs.id == rhs.id }
@@ -118,17 +121,46 @@ struct StoryGeneratorView: View {
     @State private var route: Route? = nil
     @State private var pendingStory: SavedStory? = nil
     @State private var showActionSheet: Bool = false
+    @State private var isGeneratingGame = false
+    @State private var generatedGame: StoryGame? = nil
     
     @State private var showModelUnavailableAlert = false
     
     @State private var showConfetti = false
+    @State private var varietyScore: Int = 100
+    @State private var showVarietyInfo = false
+    @State private var currentStoryDNA: StoryDNA? = nil
+    @State private var showDNASheet = false
     
     private let speechSynthesizer = AVSpeechSynthesizer()
+    
+    private func getNaturalVoice() -> AVSpeechSynthesisVoice? {
+        // Use same natural voice selection as StoryPlayerView
+        let preferredVoices = [
+            "com.apple.voice.premium.en-US.Zoe",
+            "com.apple.voice.premium.en-US.Reed",
+            "com.apple.voice.enhanced.en-US.Samantha",
+            "com.apple.ttsbundle.siri_female_en-US_compact"
+        ]
+        
+        for voiceIdentifier in preferredVoices {
+            if let voice = AVSpeechSynthesisVoice(identifier: voiceIdentifier) {
+                return voice
+            }
+        }
+        
+        return AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("en") }
+            .sorted { $0.quality.rawValue > $1.quality.rawValue }
+            .first
+    }
+    
     private func speakGreeting(_ text: String) {
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = 0.5
-        utterance.pitchMultiplier = 1.25
+        utterance.voice = getNaturalVoice()
+        utterance.rate = 0.52  // Slightly faster for greetings
+        utterance.pitchMultiplier = 1.05  // Very slight lift for enthusiasm
+        utterance.volume = 1.0
         speechSynthesizer.stopSpeaking(at: .immediate)
         speechSynthesizer.speak(utterance)
     }
@@ -137,6 +169,10 @@ struct StoryGeneratorView: View {
         let loadedSettings = UserDefaults.standard.loadStorySettings()
         _settings = State(initialValue: loadedSettings)
         _charactersText = State(initialValue: loadedSettings.defaultKidName)
+        
+        // Auto-select all kids by default
+        let allKidIds = Set(loadedSettings.kidProfiles.map { $0.id })
+        _selectedKids = State(initialValue: allKidIds)
     }
     
     var body: some View {
@@ -150,6 +186,12 @@ struct StoryGeneratorView: View {
                         case .illustrate(let visualStory):
                             let pipeline = IllustrationPipeline()
                             IllustrationSceneListView(story: visualStory, pipeline: pipeline)
+                        case .game(let story):
+                            if let game = generatedGame {
+                                StoryGamePlayView(game: game, playerName: story.kidNames.first ?? "Player")
+                            } else {
+                                Text("Loading game...")
+                            }
                         }
                     }
                     .confirmationDialog("What would you like to do?", isPresented: $showActionSheet, presenting: pendingStory) { story in
@@ -160,6 +202,12 @@ struct StoryGeneratorView: View {
                         Button("View Story") {
                             HapticEngine.play(.scrub)
                             route = .illustrate(story)
+                        }
+                        Button("Play Game 🎮") {
+                            HapticEngine.play(.play)
+                            Task {
+                                await generateAndPlayGame(for: story)
+                            }
                         }
                         Button("Cancel", role: .cancel) { }
                     }
@@ -183,6 +231,9 @@ struct StoryGeneratorView: View {
             playButtonSection
         }
         .navigationTitle("Story Generator")
+        .onAppear {
+            refreshSettings()
+        }
     }
     
     private var topicSection: some View {
@@ -222,20 +273,190 @@ struct StoryGeneratorView: View {
                         .frame(width: 40, alignment: .trailing)
                 }
             }
-            TextField("Main Characters (comma-separated, optional)", text: $charactersText)
+            
+            // Kid profiles selector
+            if !settings.kidProfiles.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Include Kids in Story")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        if selectedKids.count > 0 {
+                            Text("\(selectedKids.count) selected")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.1))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    
+                    ForEach(settings.kidProfiles) { kid in
+                        Button {
+                            HapticEngine.play(.selection)
+                            if selectedKids.contains(kid.id) {
+                                selectedKids.remove(kid.id)
+                            } else {
+                                selectedKids.insert(kid.id)
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: selectedKids.contains(kid.id) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(selectedKids.contains(kid.id) ? .blue : .gray)
+                                    .font(.title3)
+                                
+                                // Mini avatar
+                                ZStack {
+                                    Circle()
+                                        .fill(selectedKids.contains(kid.id) ? 
+                                              LinearGradient(colors: [.blue.opacity(0.6), .purple.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                                              LinearGradient(colors: [.gray.opacity(0.3), .gray.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                        .frame(width: 32, height: 32)
+                                    
+                                    Text(kid.name.prefix(1).uppercased())
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(kid.name)
+                                        .foregroundColor(.primary)
+                                        .fontWeight(.medium)
+                                    
+                                    Text("\(kid.age) years old" + (!kid.favoriteAnimal.isEmpty ? " • Loves \(kid.favoriteAnimal)" : ""))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                            }
+                        }
+                    }
+                    
+                    if selectedKids.isEmpty {
+                        HStack {
+                            Image(systemName: "info.circle")
+                                .foregroundColor(.orange)
+                            Text("Select at least one kid to personalize the story")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            } else {
+                NavigationLink(destination: StorySettingsView()) {
+                    VStack(spacing: 8) {
+                        HStack {
+                            Image(systemName: "person.2.badge.gearshape")
+                                .font(.title2)
+                                .foregroundColor(.blue)
+                            
+                            VStack(alignment: .leading) {
+                                Text("Add Kids to Personalize Stories")
+                                    .foregroundColor(.blue)
+                                    .fontWeight(.medium)
+                                Text("Stories are better with names and ages!")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            
+            // Fallback for additional characters
+            TextField("Additional Characters (optional)", text: $charactersText)
         }
     }
     
     private var generateButtonSection: some View {
         Section {
-            Button("Generate Story") {
-                HapticEngine.play(.play)
-                Task {
-                    await generateStory()
+            VStack(spacing: 12) {
+                Button {
+                    HapticEngine.play(.play)
+                    Task {
+                        await generateStory()
+                    }
+                } label: {
+                    HStack {
+                        if isGenerating {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "sparkles")
+                        }
+                        Text(isGenerating ? "Creating Unique Story..." : "Generate Story")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(isGenerating || topicIsEmpty ? Color.gray : Color.blue)
+                    .foregroundColor(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .disabled(isGenerating || topicIsEmpty)
+                
+                // Variety indicator
+                HStack {
+                    Image(systemName: varietyScore >= 80 ? "star.fill" : varietyScore >= 50 ? "star.leadinghalf.filled" : "star")
+                        .foregroundColor(varietyScore >= 80 ? .green : varietyScore >= 50 ? .orange : .red)
+                    
+                    Text("Story Variety: \(varietyScore)%")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Button {
+                        showVarietyInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                    
+                    Spacer()
                 }
             }
-            .disabled(isGenerating || topicIsEmpty)
         }
+        .onAppear {
+            updateVarietyScore()
+        }
+        .alert("Story Variety", isPresented: $showVarietyInfo) {
+            Button("OK", role: .cancel) { }
+            Button("Reset Variety") {
+                StoryUniquenessEngine.shared.resetHistory()
+                updateVarietyScore()
+            }
+        } message: {
+            Text(varietyMessage)
+        }
+    }
+    
+    private var varietyMessage: String {
+        if varietyScore >= 80 {
+            return "Excellent! Your stories are unique and diverse. Keep exploring different themes!"
+        } else if varietyScore >= 50 {
+            return "Good variety, but try exploring new themes and settings to make stories even more unique."
+        } else {
+            return "Stories are becoming repetitive. Try different topics or tap 'Reset Variety' to start fresh."
+        }
+    }
+    
+    private func updateVarietyScore() {
+        let stats = StoryUniquenessEngine.shared.getVarietyStats()
+        varietyScore = stats.varietyScore
     }
     
     private var playButtonSection: some View {
@@ -289,12 +510,36 @@ struct StoryGeneratorView: View {
                             .foregroundColor(.secondary)
                     }
                 } else if !storyContent.isEmpty {
-                    ScrollView {
-                        Text(storyContent)
-                            .font(.body)
-                            .padding(.vertical)
+                    VStack(spacing: 12) {
+                        // Story DNA Badge (if available)
+                        if let dna = currentStoryDNA {
+                            Button {
+                                showDNASheet = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "sparkles")
+                                        .foregroundColor(.purple)
+                                    Text("View Story DNA")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                    Image(systemName: "sparkles")
+                                        .font(.caption2)
+                                        .foregroundColor(.yellow)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.purple.opacity(0.1))
+                                .clipShape(Capsule())
+                            }
+                        }
+                        
+                        ScrollView {
+                            Text(storyContent)
+                                .font(.body)
+                                .padding(.vertical)
+                        }
+                        .frame(minHeight: 100)
                     }
-                    .frame(minHeight: 100)
                 } else {
                     Text("No story generated yet.")
                         .foregroundColor(.secondary)
@@ -312,6 +557,11 @@ struct StoryGeneratorView: View {
                 }
             }
         }
+        .sheet(isPresented: $showDNASheet) {
+            if let dna = currentStoryDNA {
+                StoryDNAView(dna: dna)
+            }
+        }
     }
     
     private var topicIsEmpty: Bool {
@@ -324,22 +574,43 @@ struct StoryGeneratorView: View {
     
     // Removed DuoLingo-related animation functions
     
+    private func refreshSettings() {
+        let latestSettings = UserDefaults.standard.loadStorySettings()
+        settings = latestSettings
+        let allKidIds = Set(latestSettings.kidProfiles.map { $0.id })
+        let existingSelection = selectedKids.intersection(allKidIds)
+        selectedKids = existingSelection.isEmpty ? allKidIds : existingSelection
+    }
+    
     func generateStory() async {
-       
-        
         isGenerating = true
         storyContent = ""
+        if !SystemLanguageModel.default.isAvailable {
+            isGenerating = false
+            showModelUnavailableAlert = true
+            return
+        }
         let resolvedTopic = topicOptions[selectedTopicIndex].title == "Custom..." ? customTopic : topicOptions[selectedTopicIndex].title
-        let namesArray: [String]
-        let trimmedCharacters = charactersText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedCharacters.isEmpty {
-            namesArray = []
-        } else {
-            namesArray = trimmedCharacters.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        
+        // Build names array from selected kid profiles
+        var namesArray: [String] = []
+        var kidAges: [Int] = []
+        
+        // Add selected kids from profiles
+        let selectedKidProfiles = settings.kidProfiles.filter { selectedKids.contains($0.id) }
+        for kid in selectedKidProfiles {
+            namesArray.append(kid.name)
+            kidAges.append(kid.age)
         }
         
-        let kidAgesDict = UserDefaults.standard.dictionary(forKey: "storySettingsKey") as? [String: Int] ?? [:]
-        let kidAges = namesArray.map { kidAgesDict[$0] ?? 0 }
+        // Add additional characters from text field
+        let trimmedCharacters = charactersText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedCharacters.isEmpty {
+            let additionalChars = trimmedCharacters.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            namesArray.append(contentsOf: additionalChars)
+            // Default age for additional characters
+            kidAges.append(contentsOf: Array(repeating: 8, count: additionalChars.count))
+        }
         
         let parameters = StoryGenerationParameters(
             topic: resolvedTopic,
@@ -350,18 +621,209 @@ struct StoryGeneratorView: View {
             kidPictures: []
         )
         do {
-            _ = try await StoryGenerator.shared.generateKidFriendlyStory(with: parameters) { partialStory, isFinished in
-                storyContent = partialStory
-                if isFinished {
-                    isGenerating = false
-                    showConfetti = true
+            _ = try await StoryGenerator.shared.generateKidFriendlyStory(
+                with: parameters,
+                onUpdate: { partialStory, isFinished in
+                    Task { @MainActor in
+                        storyContent = partialStory
+                        if isFinished {
+                            isGenerating = false
+                            showConfetti = true
+                            updateVarietyScore()
+                        }
+                    }
+                },
+                onDNAGenerated: { dna in
+                    Task { @MainActor in
+                        currentStoryDNA = dna
+                    }
                 }
+            )
+        } catch let error as LanguageModelSession.GenerationError {
+            isGenerating = false
+            switch error {
+            case .assetsUnavailable:
+                showModelUnavailableAlert = true
+            default:
+                storyContent = "Sorry, there was an error generating your story. Please try again."
+                HapticEngine.play(.error)
+            }
+        } catch let error as FoundationModelsError {
+            isGenerating = false
+            if case .modelUnavailable = error {
+                showModelUnavailableAlert = true
+            } else {
+                storyContent = "Sorry, there was an error generating your story. Please try again."
+                HapticEngine.play(.error)
             }
         } catch {
             isGenerating = false
             storyContent = "Sorry, there was an error generating your story. Please try again."
             HapticEngine.play(.error)
         }
+    }
+    
+    // MARK: - Game Generation
+    
+    private func generateAndPlayGame(for story: SavedStory) async {
+        isGeneratingGame = true
+        
+        do {
+            // Check if game already exists
+            if let existingGame = StoryGameGenerator.shared.game(forStoryID: story.id) {
+                generatedGame = existingGame
+                route = .game(story)
+            } else {
+                // Generate new game
+                let game = try await StoryGameGenerator.shared.generateGame(from: story, numberOfChallenges: 5)
+                generatedGame = game
+                route = .game(story)
+            }
+        } catch {
+            // Handle error
+            print("Error generating game: \(error)")
+        }
+        
+        isGeneratingGame = false
+    }
+}
+
+// MARK: - Story DNA View
+
+struct StoryDNAView: View {
+    let dna: StoryDNA
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header
+                    VStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 60))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.purple, .blue, .pink],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        
+                        Text("Story DNA")
+                            .font(.title)
+                            .fontWeight(.bold)
+                        
+                        Text("The unique elements that make this story special")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                    
+                    // DNA Elements
+                    VStack(spacing: 16) {
+                        DNAElement(
+                            icon: "sparkles",
+                            title: "Plot Twist",
+                            description: dna.plotTwist,
+                            color: .yellow
+                        )
+                        
+                        DNAElement(
+                            icon: "location.fill",
+                            title: "Setting",
+                            description: dna.setting,
+                            color: .green
+                        )
+                        
+                        DNAElement(
+                            icon: "exclamationmark.triangle.fill",
+                            title: "Conflict",
+                            description: dna.conflict,
+                            color: .orange
+                        )
+                        
+                        DNAElement(
+                            icon: "heart.fill",
+                            title: "Emotion",
+                            description: dna.emotion,
+                            color: .red
+                        )
+                        
+                        DNAElement(
+                            icon: "lightbulb.fill",
+                            title: "Lesson",
+                            description: dna.lesson,
+                            color: .blue
+                        )
+                        
+                        if let magical = dna.magicalElement {
+                            DNAElement(
+                                icon: "wand.and.stars",
+                                title: "Magical Element",
+                                description: magical,
+                                color: .purple
+                            )
+                        }
+                        
+                        if let character = dna.uniqueCharacter {
+                            DNAElement(
+                                icon: "person.fill",
+                                title: "Special Character",
+                                description: character,
+                                color: .pink
+                            )
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct DNAElement: View {
+    let icon: String
+    let title: String
+    let description: String
+    let color: Color
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.2))
+                    .frame(width: 50, height: 50)
+                
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(color)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Text(description)
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 

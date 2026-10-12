@@ -7,11 +7,13 @@ struct SavedStoryListView: View {
     private enum Route: Identifiable, Hashable {
         case play(SavedStory)
         case illustrate(SavedStory)
+        case game(SavedStory)
 
         var id: String {
             switch self {
             case .play(let s): return "play_" + s.id
             case .illustrate(let s): return "illustrate_" + s.id
+            case .game(let s): return "game_" + s.id
             }
         }
 
@@ -24,6 +26,8 @@ struct SavedStoryListView: View {
         }
     }
     @State private var route: Route? = nil
+    @State private var isGeneratingGame = false
+    @State private var generatedGame: StoryGame? = nil
 
     // Filters
     @State private var showFilterSheet: Bool = false
@@ -82,7 +86,6 @@ struct SavedStoryListView: View {
 
                     HStack(spacing: 12) {
                         Button("Play Story") {
-                            // Optional: keep your haptics if available
                             #if canImport(UIKit)
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             #endif
@@ -97,6 +100,25 @@ struct SavedStoryListView: View {
                             route = .illustrate(story)
                         }
                         .buttonStyle(.glassProminent)
+                        
+                        Button {
+                            #if canImport(UIKit)
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            #endif
+                            Task {
+                                await generateAndPlayGame(for: story)
+                            }
+                        } label: {
+                            if isGeneratingGame {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: "gamecontroller.fill")
+                            }
+                        }
+                        .buttonStyle(.glassProminent)
+                        .disabled(isGeneratingGame)
                     }
                     .padding(20)
                 }
@@ -118,8 +140,14 @@ struct SavedStoryListView: View {
                 case .play(let story):
                     StoryPlayerView(story: story, duration: story.duration)
                 case .illustrate(let visualStory):
-                    let pipeline = IllustrationPipeline() // same extractor / prompt composer
+                    let pipeline = IllustrationPipeline()
                     IllustrationSceneListView(story: visualStory, pipeline: pipeline)
+                case .game(let story):
+                    if let game = generatedGame {
+                        StoryGamePlayView(game: game, playerName: story.kidNames.first ?? "Player")
+                    } else {
+                        Text("Loading game...")
+                    }
                 }
             }
             // Filters remain a sheet
@@ -135,6 +163,30 @@ struct SavedStoryListView: View {
                 )
             }
         }
+    }
+    
+    // MARK: - Game Generation
+    
+    private func generateAndPlayGame(for story: SavedStory) async {
+        isGeneratingGame = true
+        
+        do {
+            // Check if game already exists
+            if let existingGame = StoryGameGenerator.shared.game(forStoryID: story.id) {
+                generatedGame = existingGame
+                route = .game(story)
+            } else {
+                // Generate new game
+                let game = try await StoryGameGenerator.shared.generateGame(from: story, numberOfChallenges: 5)
+                generatedGame = game
+                route = .game(story)
+            }
+        } catch {
+            // Handle error - could show an alert here
+            print("Error generating game: \(error)")
+        }
+        
+        isGeneratingGame = false
     }
 }
 

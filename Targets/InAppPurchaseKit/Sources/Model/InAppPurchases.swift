@@ -139,6 +139,10 @@ extension InAppPurchases {
 		guard let apiKey = try? getPlistEntry("REVENUECAT_API_KEY", in: "RevenueCat-Info"), !apiKey.isEmpty else {
 			fatalError("ERROR: Couldn't find REVENUECAT_API_KEY in RevenueCat-Info.plist!")
 		}
+		if apiKey.hasPrefix("INSERT_YOUR_") {
+			print("[IAPKIT] RevenueCat disabled. Set REVENUECAT_API_KEY in RevenueCat-Info.plist.")
+			return
+		}
 		Purchases.logLevel = .error
 		Purchases.configure(withAPIKey: apiKey)
 	}

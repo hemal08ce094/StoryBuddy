@@ -123,18 +123,21 @@ class AppDelegate: NSObject, UIApplicationDelegate, OSNotificationLifecycleListe
 		// If OneSignal initialized successfully, we set up the push notification observers and clear all notifications when the app is opened
 		PushNotifications.initOneSignal(launchOptions)
 
-		// To route push notifications to in-app messages, we need to listen to the notification lifecycle
-		OneSignal.Notifications.addForegroundLifecycleListener(self)
+		// Only set up OneSignal listeners if it was successfully initialized
+		if PushNotifications.isInitialized {
+			// To route push notifications to in-app messages, we need to listen to the notification lifecycle
+			OneSignal.Notifications.addForegroundLifecycleListener(self)
 
-		// Clear all notifications (if any)
-		PushNotifications.clearAllAppNotifications()
+			// Clear all notifications (if any)
+			PushNotifications.clearAllAppNotifications()
 
-		// Calls onPushSubscriptionDidChange whenever a user's push subscription changes
-		// https://documentation.onesignal.com/docs/mobile-sdk#observe-push-subscription-changes
-		OneSignal.User.pushSubscription.addObserver(self)
+			// Calls onPushSubscriptionDidChange whenever a user's push subscription changes
+			// https://documentation.onesignal.com/docs/mobile-sdk#observe-push-subscription-changes
+			OneSignal.User.pushSubscription.addObserver(self)
 
-		// calls onClick whenever the user opens a notification
-		OneSignal.Notifications.addClickListener(self)
+			// calls onClick whenever the user opens a notification
+			OneSignal.Notifications.addClickListener(self)
+		}
 
 		// Perform app-level operations when the user auth state changes
 		// We use this to set all the different providers to use the same,

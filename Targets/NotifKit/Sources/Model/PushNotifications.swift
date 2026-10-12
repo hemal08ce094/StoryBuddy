@@ -28,6 +28,11 @@ public class PushNotifications {
 		/// The sheet includes information about ToS and privacy policy, so by pressing on Allow, the user agrees to them.
 		PushNotifications.oneSignalConsentGiven()
 
+		guard isOneSignalInitialized else {
+			print("[NOTIFKIT][WARNING] OneSignal not initialized, cannot request permissions")
+			return
+		}
+		
 		if PushNotifications.canAskForNotificationsPermission() {
 			OneSignal.Notifications.requestPermission(
 				{ accepted in
@@ -44,22 +49,26 @@ public class PushNotifications {
 
 	/// Will return whether the user has given permission to receive notifications
 	static public func hasNotificationsPermission() async -> Bool {
+		guard isOneSignalInitialized else { return false }
 		return OneSignal.Notifications.permission
 	}
 
 	/// Can the App show the system prompt for notifications permission? (Can only be shown once)
 	static public func canAskForNotificationsPermission() -> Bool {
+		guard isOneSignalInitialized else { return false }
 		return OneSignal.Notifications.canRequestPermission
 	}
 
 	/// Call this if we have received the user's consent to send them notifications (done through the in-app prompt called via showNotificationsPermissionsSheet())
 	/// https://documentation.onesignal.com/docs/mobile-sdk#get-user-consent-for-data-collection
 	static public func oneSignalConsentGiven() {
+		guard isOneSignalInitialized else { return }
 		OneSignal.setConsentGiven(true)
 	}
 
 	/// Remove all notifications from the notification center (is called when the app is opened)
 	static public func clearAllAppNotifications() {
+		guard isOneSignalInitialized else { return }
 		OneSignal.Notifications.clearAll()
 	}
 }
@@ -67,6 +76,13 @@ public class PushNotifications {
 /// SDK Initialization
 extension PushNotifications {
 
+	// Track whether OneSignal was successfully initialized
+	private static var isOneSignalInitialized = false
+	
+	public static var isInitialized: Bool {
+		return isOneSignalInitialized
+	}
+	
 	// We dont do this inside init of PushNotifications because we want to call it from the application delegate's
 	// didFinishLaunchingWithOptions method, in order to pass the launch options params.
 	// Is only used once in App.swift to initialize OneSignal
@@ -74,6 +90,12 @@ extension PushNotifications {
 
 		guard let appID = try? getPlistEntry("ONESIGNAL_APP_ID", in: "OneSignal-Info"), !appID.isEmpty else {
 			fatalError("ERROR: Couldn't find ONESIGNAL_APP_ID in OneSignal-Info.plist!")
+		}
+
+		if appID.hasPrefix("INSERT_YOUR_") || UUID(uuidString: appID) == nil {
+			print("[NOTIFKIT] OneSignal disabled. Set a valid ONESIGNAL_APP_ID in OneSignal-Info.plist.")
+			isOneSignalInitialized = false
+			return
 		}
 
 		// Remove this method to stop OneSignal Debugging
@@ -86,10 +108,12 @@ extension PushNotifications {
 
 		// OneSignal initialization
 		OneSignal.initialize(appID, withLaunchOptions: appLaunchOptions)
+		isOneSignalInitialized = true
 	}
 
 	/// Allows us to connect a user with our Firebase Auth UID
 	static public func associateUserWithID(_ id: String) {
+		guard isOneSignalInitialized else { return }
 		OneSignal.login(id)
 		Analytics.capture(
 			.info, id: "connected_user_between_auth_and_onesignal",
@@ -99,6 +123,7 @@ extension PushNotifications {
 
 	/// Disconnects OneSignal ID from Firebase Auth UID
 	static public func removeUserIDAssociation() {
+		guard isOneSignalInitialized else { return }
 		OneSignal.logout()
 	}
 

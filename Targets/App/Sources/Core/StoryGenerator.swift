@@ -22,44 +22,84 @@ class StoryGenerator {
 
     }
 
+    private let safetyRetryPrefix = "Safety note: This is for young children. Avoid scary, violent, or unsafe themes. Keep everything gentle, positive, and age-appropriate."
+
+    private func respondWithSafetyRetry<T>(
+        _ session: LanguageModelSession,
+        prompt: String,
+        generating type: T.Type
+    ) async throws -> LanguageModelSession.Response<T> where T: Generable {
+        do {
+            return try await session.respond(to: prompt, generating: type)
+        } catch let error as LanguageModelSession.GenerationError {
+            if case .guardrailViolation = error {
+                let retryPrompt = safetyRetryPrefix + "\n" + prompt
+                return try await session.respond(to: retryPrompt, generating: type)
+            }
+            throw error
+        }
+    }
+
+    private func respondWithSafetyRetry(
+        _ session: LanguageModelSession,
+        prompt: String
+    ) async throws -> LanguageModelSession.Response<String> {
+        do {
+            return try await session.respond(to: prompt)
+        } catch let error as LanguageModelSession.GenerationError {
+            if case .guardrailViolation = error {
+                let retryPrompt = safetyRetryPrefix + "\n" + prompt
+                return try await session.respond(to: retryPrompt)
+            }
+            throw error
+        }
+    }
+
     /// Recommended for story playback, this version generates a kid-friendly story that is more readable for children.
     /// Generates a kid-friendly story based on the provided parameters, streaming updates during creation.
     /// Returns the fully saved story for use in playback views.
     /// Callers should await the result and use the `SavedStory`'s `content` for playback.
-    func generateKidFriendlyStory(with parameters: StoryGenerationParameters, onUpdate: @escaping (String, Bool) -> Void) async throws -> SavedStory {
+    func generateKidFriendlyStory(with parameters: StoryGenerationParameters, onUpdate: @escaping (String, Bool) -> Void, onDNAGenerated: ((StoryDNA) -> Void)? = nil) async throws -> SavedStory {
         let session = LanguageModelSession()
-        let targetWordCount = Int(Double(parameters.duration) * 2.5)
-        var composedPrompt = "Tell a story for children about \(parameters.topic). Use simple words, a friendly and positive tone, and a clear, fun plot. Avoid anything scary or negative."
-        if let name = parameters.characterName, !name.trimmingCharacters(in: .whitespaces).isEmpty {
-            composedPrompt += " The main character is named \(name)."
-        }
-        if let kid = parameters.kidNames.first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) {
-            composedPrompt += " Include a kid named \(kid) in the story."
-        }
-        if let kidAges = parameters.kidAges, !kidAges.isEmpty {
-            let agesString = kidAges.map { String($0) }.joined(separator: ", ")
-            composedPrompt += " The story should be age-appropriate for kids aged \(agesString)."
-        }
-        composedPrompt += " The story should take about \(parameters.duration) seconds to read aloud (about \(targetWordCount) words)."
+        
+        // Generate unique story DNA to avoid repetition
+        let recentStories = savedStories().prefix(10).map { $0 }
+        let storyDNA = try await StoryUniquenessEngine.shared.generateUniqueDNA(
+            for: parameters.topic,
+            avoidSimilarTo: Array(recentStories)
+        )
+        
+        // Notify caller about DNA
+        onDNAGenerated?(storyDNA)
+        
+        // Build enhanced prompt with uniqueness
+        let composedPrompt = StoryUniquenessEngine.shared.buildEnhancedPrompt(
+            baseTopic: parameters.topic,
+            dna: storyDNA,
+            parameters: parameters
+        )
 
         // Generate story outline
-        let outline = try await session.respond(
-            to: "Create an outline for a children's story: \(composedPrompt)",
+        let outlineResponse = try await respondWithSafetyRetry(
+            session,
+            prompt: "Create an outline for a children's story: \(composedPrompt)",
             generating: StoryOutline.self
         )
-        let title = outline.content.title
+        let outline = outlineResponse.content
+        let title = outline.title
 
         // Get kid-appropriate section titles
-        let sectionsResponse = try await session.respond(
-            to: "Based on the outline for the children's story '\(title)',  fun,kid-appropriate. Only return the array, nothing else."
+        let sectionsResponse = try await respondWithSafetyRetry(
+            session,
+            prompt: "Based on the outline for the children's story '\(title)',  fun,kid-appropriate. Only return the array, nothing else."
         )
         let sectionTitles: [String]
-        if let data = sectionsResponse.content.data(using: .utf8), let parsed = try? JSONDecoder().decode([String].self, from: data) {
+        if let data = sectionsResponse.content.data(using: String.Encoding.utf8), let parsed = try? JSONDecoder().decode([String].self, from: data) {
             sectionTitles = parsed
         } else {
             sectionTitles = sectionsResponse.content
                 .split(separator: "\n")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .map { $0.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
         }
 
@@ -67,8 +107,9 @@ class StoryGenerator {
         onUpdate(partialStory, false)
 
         for (idx, section) in sectionTitles.enumerated() {
-            let storySection = try await session.respond(
-                to: "Write Section \(idx + 1): '\(section)' for the children's story '\(title)'. Use 1-2 short, simple paragraphs. Be concrete, friendly, and advance the plot, focusing on clear actions."
+            let storySection = try await respondWithSafetyRetry(
+                session,
+                prompt: "Write Section \(idx + 1): '\(section)' for the children's story '\(title)'. Use 1-2 short, simple paragraphs. Be concrete, friendly, and advance the plot, focusing on clear actions."
             )
 //            partialStory += "\n\nSection \(idx + 1): \(section)\n" + storySection.content
             partialStory += storySection.content
@@ -78,11 +119,11 @@ class StoryGenerator {
         }
 
         let highLevelDescription: String = {
-            let protagonist = outline.content.protagonist
-            let conflict = outline.content.conflict
-            let setting = outline.content.setting
-            let genre = String(describing: outline.content.genre)
-            let themes = outline.content.themes.joined(separator: ", ")
+            let protagonist = outline.protagonist
+            let conflict = outline.conflict
+            let setting = outline.setting
+            let genre = String(describing: outline.genre)
+            let themes = outline.themes.joined(separator: ", ")
             return "A \(genre) story for kids set in \(setting), following \(protagonist) as they face: \(conflict). Themes: \(themes)."
         }()
 

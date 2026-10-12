@@ -20,6 +20,11 @@
 		071010652E1E5E9300AC532C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 071010642E1E5E9300AC532C /* GoogleService-Info.plist */; };
 		071010672E1E65D700AC532C /* StoryHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 071010662E1E65D700AC532C /* StoryHistoryView.swift */; };
 		0710107B2E1EE15000AC532C /* ConfettiEffect.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0710107A2E1EE15000AC532C /* ConfettiEffect.swift */; };
+		073CA4BC2F371F9500089985 /* StoryGameModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 073CA4BB2F371F9500089985 /* StoryGameModels.swift */; };
+		073CA4BE2F371FB300089985 /* StoryGameGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 073CA4BD2F371FB300089985 /* StoryGameGenerator.swift */; };
+		073CA4C02F371FEC00089985 /* StoryGamePlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 073CA4BF2F371FEC00089985 /* StoryGamePlayView.swift */; };
+		073CA4C22F37206F00089985 /* GameHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 073CA4C12F37206F00089985 /* GameHistoryView.swift */; };
+		075858A62F38AF95009432C3 /* StoryUniquenessEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075858A52F38AF95009432C3 /* StoryUniquenessEngine.swift */; };
 		07BB88492E67886B00D7F274 /* IllustrationPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07BB88482E67886B00D7F274 /* IllustrationPipeline.swift */; };
 		08122ECCBCCA497893DB64E3 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F8ADFE24E6246DEB293D1FE /* WhatsNewView.swift */; };
 		08A4F2B5FD10B3D467F8C8B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 69E0D6C63203841DD3000257 /* Assets.xcassets */; };
@@ -329,6 +334,11 @@
 		071010642E1E5E9300AC532C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		071010662E1E65D700AC532C /* StoryHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryHistoryView.swift; sourceTree = "<group>"; };
 		0710107A2E1EE15000AC532C /* ConfettiEffect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfettiEffect.swift; sourceTree = "<group>"; };
+		073CA4BB2F371F9500089985 /* StoryGameModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryGameModels.swift; sourceTree = "<group>"; };
+		073CA4BD2F371FB300089985 /* StoryGameGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryGameGenerator.swift; sourceTree = "<group>"; };
+		073CA4BF2F371FEC00089985 /* StoryGamePlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryGamePlayView.swift; sourceTree = "<group>"; };
+		073CA4C12F37206F00089985 /* GameHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameHistoryView.swift; sourceTree = "<group>"; };
+		075858A52F38AF95009432C3 /* StoryUniquenessEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryUniquenessEngine.swift; sourceTree = "<group>"; };
 		07BB88482E67886B00D7F274 /* IllustrationPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IllustrationPipeline.swift; sourceTree = "<group>"; };
 		08B54C6E49F0FE41E73B9853 /* FirebaseBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseBackend.swift; sourceTree = "<group>"; };
 		0D8F1511BFC49F25984E0952 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -537,6 +547,11 @@
 				07BB88482E67886B00D7F274 /* IllustrationPipeline.swift */,
 				0710105C2E1E5E7500AC532C /* StorySettingsView.swift */,
 				071010232E1CD74300AC532C /* StoryPlayerView.swift */,
+				073CA4BB2F371F9500089985 /* StoryGameModels.swift */,
+				073CA4BD2F371FB300089985 /* StoryGameGenerator.swift */,
+				073CA4BF2F371FEC00089985 /* StoryGamePlayView.swift */,
+				073CA4C12F37206F00089985 /* GameHistoryView.swift */,
+				075858A52F38AF95009432C3 /* StoryUniquenessEngine.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -1442,13 +1457,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				07BB88492E67886B00D7F274 /* IllustrationPipeline.swift in Sources */,
+				075858A62F38AF95009432C3 /* StoryUniquenessEngine.swift in Sources */,
+				073CA4BC2F371F9500089985 /* StoryGameModels.swift in Sources */,
 				6AD206A89E33E37CC135E3F4 /* TuistBundle+AIStoryBuddy.swift in Sources */,
 				071010252E1CD74300AC532C /* Persistence.swift in Sources */,
+				073CA4C22F37206F00089985 /* GameHistoryView.swift in Sources */,
 				071010672E1E65D700AC532C /* StoryHistoryView.swift in Sources */,
 				0710102B2E1CD74300AC532C /* StoryPlayerView.swift in Sources */,
 				0710102C2E1CD74300AC532C /* StoryGeneratorView.swift in Sources */,
 				78AD6E510A5F48BE0DF77864 /* App.swift in Sources */,
 				1B2E7B979047F7C214FCE968 /* ContentView.swift in Sources */,
+				073CA4BE2F371FB300089985 /* StoryGameGenerator.swift in Sources */,
 				0710105E2E1E5E7500AC532C /* StorySettingsView.swift in Sources */,
 				0710107B2E1EE15000AC532C /* ConfettiEffect.swift in Sources */,
 				0710105F2E1E5E7500AC532C /* HapticEngine.swift in Sources */,
@@ -1461,6 +1480,7 @@
 				C97D595AAF0FE8A8AA5A104C /* AppearanceView.swift in Sources */,
 				A12DF3A0B2B2B51D361CB205 /* PrivacyView.swift in Sources */,
 				CDEE537B60B8870D9B5D8DDA /* SettingsView.swift in Sources */,
+				073CA4C02F371FEC00089985 /* StoryGamePlayView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1755,7 +1775,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Derived/Entitlements/AIStoryBuddy.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 542W8Z2VM3;
 				ENABLE_PREVIEWS = YES;
@@ -1766,7 +1786,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 4.0;
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.hemal.Story-Buddy";
 				PRODUCT_NAME = AIStoryBuddy;
@@ -2087,7 +2107,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Derived/Entitlements/AIStoryBuddy.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 542W8Z2VM3;
 				ENABLE_PREVIEWS = YES;
@@ -2098,7 +2118,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 4.0;
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.hemal.Story-Buddy";
 				PRODUCT_NAME = AIStoryBuddy;

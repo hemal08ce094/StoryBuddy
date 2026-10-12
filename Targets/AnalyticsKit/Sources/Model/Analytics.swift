@@ -145,6 +145,16 @@ extension Analytics {
 			fatalError("ERROR: Couldn't find POSTHOG_HOST in PostHog-Info.plist!")
 		}
 
+		if apiKey.hasPrefix("INSERT_YOUR_") || host.hasPrefix("INSERT_YOUR_") {
+			print("[ANALYTICS] PostHog disabled. Set POSTHOG_API_KEY and POSTHOG_HOST in PostHog-Info.plist.")
+			return
+		}
+
+		if URL(string: host)?.scheme == nil {
+			print("[ANALYTICS] PostHog disabled. POSTHOG_HOST must include a URL scheme (e.g. https://...).")
+			return
+		}
+
 		let config = PostHogConfig(apiKey: apiKey, host: host)
 
 		// Doesn't work well with SwiftUI. We'll manually track screen views via the .captureViewActivity() Modifier

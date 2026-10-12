@@ -26,13 +26,38 @@ struct StoryPlayerView: View {
     @State private var speechDelegateWrapper: SpeechDelegateWrapper? = nil
 
     private func selectedVoice() -> AVSpeechSynthesisVoice? {
-        // Use a cartoon-friendly built-in voice, hardcoded identifier for Samantha or fallback to first English voice
-        let cartoonVoiceIdentifier = "com.apple.ttsbundle.Samantha-compact"
-        if let voice = AVSpeechSynthesisVoice(identifier: cartoonVoiceIdentifier) {
+        // Load user preferences
+        let settings = UserDefaults.standard.loadStorySettings()
+        
+        // If user has selected a specific voice, use it
+        if let voiceId = settings.voicePreference.voiceIdentifier,
+           let voice = AVSpeechSynthesisVoice(identifier: voiceId) {
             return voice
         }
-        // fallback: first English voice
-        return AVSpeechSynthesisVoice.speechVoices().first { $0.language.hasPrefix("en") }
+        
+        // Auto mode: Try to use premium enhanced voices first (more natural and human-like)
+        // These voices are available on iOS 16+ and sound much more natural
+        let preferredVoices = [
+            "com.apple.voice.premium.en-US.Zoe",      // Natural female voice
+            "com.apple.voice.premium.en-US.Reed",     // Natural male voice
+            "com.apple.voice.enhanced.en-US.Samantha", // Enhanced Samantha (better than compact)
+            "com.apple.ttsbundle.siri_female_en-US_compact", // Siri voice
+            "com.apple.voice.compact.en-US.Samantha"  // Fallback to compact
+        ]
+        
+        // Try each preferred voice
+        for voiceIdentifier in preferredVoices {
+            if let voice = AVSpeechSynthesisVoice(identifier: voiceIdentifier) {
+                return voice
+            }
+        }
+        
+        // Fallback: Use the best quality English voice available
+        let availableVoices = AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("en") }
+            .sorted { $0.quality.rawValue > $1.quality.rawValue } // Sort by quality (enhanced > premium > default)
+        
+        return availableVoices.first
     }
 
     var progress: Double {
@@ -320,9 +345,25 @@ struct StoryPlayerView: View {
 
         let utterance = AVSpeechUtterance(string: utteranceString)
         utterance.voice = selectedVoice()
-        utterance.rate = 0.5
-        utterance.pitchMultiplier = 1.3
+        
+        // Load user preferences for speech rate
+        let settings = UserDefaults.standard.loadStorySettings()
+        
+        // Natural storytelling voice settings
+        // Use user's preferred speech rate (0.40-0.60 range)
+        utterance.rate = Float(settings.speechRate)
+        
+        // Pitch: Keep it natural (1.0) instead of artificially high
+        // This makes the voice sound more human and less robotic
+        utterance.pitchMultiplier = 1.0
+        
+        // Volume: Full volume for clarity
         utterance.volume = 1.0
+        
+        // Add natural pauses at sentence boundaries for better flow
+        utterance.preUtteranceDelay = 0.1
+        utterance.postUtteranceDelay = 0.2
+        
         synthesizer.speak(utterance)
     }
 
